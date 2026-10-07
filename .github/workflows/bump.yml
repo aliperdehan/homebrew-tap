@@ -1,0 +1,40 @@
+# Keeps Formula/pdfmd.rb on the newest pdfmd-cli release from PyPI.
+# Runs daily and on demand; commits with the built-in GITHUB_TOKEN, so no
+# secrets are needed. Only the url and sha256 lines change: the pyyaml and
+# pypdf resources are pinned and only need touching if pdfmd's dependencies do.
+name: Bump pdfmd
+
+on:
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Point the formula at the latest sdist
+        run: |
+          python3 - <<'PY'
+          import json, re, urllib.request
+          d = json.load(urllib.request.urlopen("https://pypi.org/pypi/pdfmd-cli/json"))
+          sd = next(u for u in d["urls"] if u["packagetype"] == "sdist")
+          p = "Formula/pdfmd.rb"
+          s = open(p).read()
+          s = re.sub(r'(?m)^  url ".*"$', f'  url "{sd["url"]}"', s, count=1)
+          s = re.sub(r'(?m)^  sha256 ".*"$', f'  sha256 "{sd["digests"]["sha256"]}"', s, count=1)
+          open(p, "w").write(s)
+          open("version.txt", "w").write(d["info"]["version"])
+          PY
+      - name: Commit if it changed
+        run: |
+          version=$(cat version.txt); rm version.txt
+          git diff --quiet && { echo "already at $version"; exit 0; }
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "pdfmd $version"
+          git push

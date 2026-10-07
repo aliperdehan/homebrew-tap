@@ -1,0 +1,18 @@
+name: Test formula
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          brew tap-new local/ci --no-git
+          cp Formula/pdfmd.rb "$(brew --repository local/ci)/Formula/"
+          brew audit --strict local/ci/pdfmd
+          brew install --build-from-source local/ci/pdfmd
+          brew test local/ci/pdfmd
